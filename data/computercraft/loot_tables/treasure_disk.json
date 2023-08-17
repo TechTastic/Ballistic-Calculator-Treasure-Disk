@@ -1,0 +1,20 @@
+{
+    "pools": [
+        {
+            "name": "main",
+            "rolls": 1,
+            "entries": [
+                {
+                    "type": "minecraft:item",
+                    "name": "computercraft:treasure_disk",
+                    "functions": [
+                        {
+                            "function": "minecraft:set_nbt",
+                            "tag": "{\"Title\": \"ballistic_calculator by SuperSpaceEye\", \"SubPath\": \"superspaceeye/ballistic_calculator\", \"Colour\": 16711680}"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
