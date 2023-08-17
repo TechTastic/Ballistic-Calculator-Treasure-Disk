@@ -1,3 +1,6 @@
+The original Treasure Disks by SquidDev and the ComputerCraft community
+https://github.com/cc-tweaked/treasure-disks/tree/master
+
 The original Python Ballistic Calculator by Malex21
 https://github.com/Malex21/CreateBigCannons-BallisticCalculator
 
