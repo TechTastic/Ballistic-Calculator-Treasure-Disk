@@ -1,6 +1,6 @@
 ---
---- Original creator of formulas: @malexy on Discord
---- Original creator of python functions: @sashafiesta on Discord
+--- Original creator of formulas: @sashafiesta on Discord
+--- Original creator of python adaptation: @malexy on Discord
 --- Optimized and translated python code to lua: SpaceEye. (https://gist.github.com/SuperSpaceEye/c33443213605d1bf35f81737c9058dc2)
 --- Some lua optimizations: Autist69420
 ---
@@ -44,12 +44,7 @@ local function range(start, stop, step)
 end
 
 local function flinspace(start, stop, num_elements, min, max)
-    local items = {}
-    for k, item in pairs(linspace(start, stop, num_elements)) do
-        if not (item < min or item > max) then
-            table.insert(items, item)
-        end
-    end
+    local items = linspace(math.max(start, min), math.min(stop, max), num_elements)
     local pos = 0
     return function() -- simple iterator
         pos = pos + 1
@@ -80,7 +75,7 @@ local function time_in_air(y0, y, Vy, gravity, max_steps)
 
     if y0 <= y then
         local y0p
-        while t < max_steps/2 do
+        while t < max_steps do
             y0p = y0
             y0 = y0 + Vy
             Vy = 0.99 * Vy - gravity
@@ -97,7 +92,7 @@ local function time_in_air(y0, y, Vy, gravity, max_steps)
         end
     end
 
-    while t < max_steps/2 do
+    while t < max_steps do
         y0 = y0 + Vy
         Vy = 0.99 * Vy - gravity
         t = t + 1
@@ -123,8 +118,7 @@ local function get_min(array)
 end
 
 local function try_pitch(tried_pitch, initial_speed,
-                         length, distance, cannon, target, delta_t_max_overshoot, gravity, max_steps)
-    delta_t_max_overshoot = delta_t_max_overshoot or 1
+                         length, distance, cannon, target, gravity, max_steps)
     gravity = gravity or 0.05
     max_steps = max_steps or 1000000
 
@@ -144,8 +138,7 @@ local function try_pitch(tried_pitch, initial_speed,
 
     local t_below, t_above = time_in_air(y_coord_of_end_barrel, target[2], Vy, gravity, max_steps)
 
-    if t_above < 0 then return nil, false end
-    if t_above < horizontal_time_to_target - delta_t_max_overshoot then return nil, false end
+    if t_below < 0 then return nil, false end
 
     local delta_t = min(
             abs(horizontal_time_to_target - t_below),
@@ -171,7 +164,7 @@ end
 -- length = length of a cannon
 -- Optional parameters:
 -- max_steps = maximum number of steps program will simulate projectile before declaring it unreachable
--- delta_t_max_overshoot = maximum difference between horizontal and vertical times to target before declaring target impossible to hit.
+-- max_delta_t_error = maximum difference between horizontal and vertical times to target before declaring target impossible to hit. Only matters if check_impossible is enabled
 -- amin = minimum cannon angle
 -- amax = maximum cannon angle
 -- gravity = x m/tick
@@ -180,10 +173,10 @@ end
 -- check_impossible = does additional check for targets that are impossible to hit
 local function calculate_pitch(cannon, target, initial_speed, length,
                                optional)
-    local max_steps, delta_t_max_overshoot, amin, amax, gravity, num_iterations, num_elements, check_impossible
+    local max_steps, max_delta_t_error, amin, amax, gravity, num_iterations, num_elements, check_impossible
     optional = optional or {}
     max_steps = optional.max_steps or optional[1] or 100000
-    delta_t_max_overshoot = optional.delta_t_max_overshoot or optional[2] or 1
+    max_delta_t_error = optional.max_delta_t_error or optional[2] or 1
     amin = optional.amin or optional[3] or -30
     amax = optional.amax or optional[4] or 60
     gravity = optional.gravity or optional[5] or 0.05
@@ -194,8 +187,7 @@ local function calculate_pitch(cannon, target, initial_speed, length,
     local Dx, Dz = cannon[1] - target[1], cannon[3] - target[3]
     local distance = math.sqrt(Dx * Dx + Dz * Dz)
 
-    local delta_times = try_pitches(range(amax, amin-1, -1),
-            initial_speed, length, distance, cannon, target, delta_t_max_overshoot, gravity, max_steps)
+    local delta_times = try_pitches(range(amax, amin-1, -1), initial_speed, length, distance, cannon, target, gravity, max_steps)
     if #delta_times == 0 then return {{-1, -1, -1}, {-1, -1, -1}} end
 
     local dT1, p1, at1 = tu(get_root(delta_times, false))
@@ -208,8 +200,8 @@ local function calculate_pitch(cannon, target, initial_speed, length,
     local dTs1, dTs2
 
     for i in range(0, num_iterations) do
-        if c1 then dTs1 = try_pitches(flinspace(p1-pow(10,-i), p1+pow(10,-i), num_elements, amin, amax), initial_speed, length, distance, cannon, target, delta_t_max_overshoot, gravity, max_steps) end
-        if c2 then dTs2 = try_pitches(flinspace(p2-pow(10,-i), p2+pow(10,-i), num_elements, amin, amax), initial_speed, length, distance, cannon, target, delta_t_max_overshoot, gravity, max_steps) end
+        if c1 then dTs1 = try_pitches(flinspace(p1-pow(10,-i), p1+pow(10,-i), num_elements, amin, amax), initial_speed, length, distance, cannon, target, gravity, max_steps) end
+        if c2 then dTs2 = try_pitches(flinspace(p2-pow(10,-i), p2+pow(10,-i), num_elements, amin, amax), initial_speed, length, distance, cannon, target, gravity, max_steps) end
 
         if c1 and #dTs1 == 0 then c1=false end
         if c2 and #dTs2 == 0 then c2=false end
@@ -223,8 +215,8 @@ local function calculate_pitch(cannon, target, initial_speed, length,
     if same_res then dT2, p2, at2 = dT1, p1, at1 end
 
     local r1, r2 = {dT1, p1, at1}, {dT2, p2, at2}
-    if check_impossible and dT1 > delta_t_max_overshoot then r1 = {-1, -1, -1} end
-    if check_impossible and dT2 > delta_t_max_overshoot then r2 = {-1, -1, -1} end
+    if check_impossible and dT1 > max_delta_t_error then r1 = {-1, -1, -1} end
+    if check_impossible and dT2 > max_delta_t_error then r2 = {-1, -1, -1} end
 
     return r1, r2
 end
